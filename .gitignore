@@ -1,0 +1,14 @@
+# Outputs and logs (large, and contain participant-level data)
+data/
+results/
+logs/
+
+# Python / editors
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+
+# Never commit participant-level tables, wherever they end up
+*.parquet
+*.tsv.gz

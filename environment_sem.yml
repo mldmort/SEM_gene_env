@@ -1,0 +1,11 @@
+# R environment for the SEM (02_analysis/sem). Rscript path goes in config/slurm.env (GXE_RSCRIPT).
+name: sem
+channels:
+  - conda-forge
+dependencies:
+  - r-base=4.4
+  - r-lavaan
+  - r-arrow
+  - r-data.table
+  - r-jsonlite
+  - r-future.apply

@@ -1,0 +1,13 @@
+name: gxe
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python>=3.11
+  - pandas>=2.2
+  - polars>=1.30
+  - pyarrow
+  - pyyaml
+  - statsmodels
+  - matplotlib
+  - bedtools

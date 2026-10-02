@@ -1,0 +1,172 @@
+# GxE_analysis pipeline configuration.
+#
+# Every external input path lives here so the scripts carry no hard-coded paths.
+# Relative output paths (data/, logs/) are resolved against the repository root.
+
+outputs:
+  intermediate_dir: data/intermediate   # per-step outputs
+  assembled_dir: data/assembled         # final per-cohort tables (step 08)
+
+cohorts:
+  # `sources` are values of the manifest `source` column.
+  # `n_samples_vcf` is the joint-called VCF sample count, used for cohort_af = AC / (2N).
+  spark_wes:
+    study: spark
+    sources: [spark_gsa_v1, spark_gsa_v2, spark_twist]
+    n_samples_vcf: 142357
+  spark_wgs:
+    study: spark
+    sources: [spark_wgs]
+    n_samples_vcf: 12519
+  ssc:
+    study: ssc
+    sources: [ssc]
+    n_samples_vcf: 9209
+
+inputs:
+  manifest: /expanse/projects/sebat1/s3/data/sebat/pgs_results_v2/all_cohorts_with_ped_full.tsv
+
+  # Extra PGS not in the manifest, read per genotype source (each sample takes the score
+  # from its own manifest `source`). asd_loSSC = SBayesRC on PGC-iPSYCH ASD sumstats with SSC
+  # left out (weights: pgs_pipeline/output/weights/asd_loSSC.snpRes). The manifest's
+  # asd_ipsych_dbs uses Grove 2019, which includes SSC, so it is inflated in SSC.
+  # Same per-source files as rv_postprocessing_v3/analysis/module5_meta/build_asd_loSSC_table.py;
+  # its asd_loSSC_all.tsv lists 2,627 multi-source samples twice without saying which source.
+  # strip_suffix: array IIDs look like SP0001234_SF0001234 -> keep the SP id.
+  extra_pgs:
+    asd_loSSC:
+      spark_gsa_v1: {path: /expanse/projects/sebat1/s3/data/sebat/pgs_wf_spark_gsa_v1/scores/asd_loSSC.sscore, strip_suffix: true}
+      spark_gsa_v2: {path: /expanse/projects/sebat1/s3/data/sebat/pgs_wf_spark_gsa_v2/scores/asd_loSSC.sscore, strip_suffix: true}
+      spark_twist: {path: /expanse/projects/sebat1/s3/data/sebat/pgs_wf_spark_twist/scores/asd_loSSC.sscore, strip_suffix: true}
+      spark_wgs: {path: /expanse/projects/sebat1/s3/data/sebat/pgs_wf_spark_wgs/scores/asd_loSSC.sscore, strip_suffix: false}
+      ssc: {path: /expanse/projects/sebat1/s3/data/sebat/pgs_wf_ssc/scores/asd_loSSC.sscore, strip_suffix: false}
+
+  # Rare inherited variants: per-chromosome parquets, {cohort} and {chrom} are filled in.
+  rare_variants: /expanse/projects/sebat1/s3/data/sebat/rv_grid_search/{cohort}/step8_clean_scores_extracted/{chrom}.merged.parquet
+
+  # De novo candidates scored by synthdnm (all candidates, unfiltered).
+  dnm_scored:
+    spark_wes: /expanse/projects/sebat1/s3/data/sebat/nf_synthdnm_spark_wes/output/classification/universal_scored.parquet
+    spark_wgs: /expanse/projects/sebat1/s3/data/sebat/nf_synthdnm_spark_wgs/output/classification/universal_scored.parquet
+    ssc: /expanse/projects/sebat1/s3/data/sebat/nf_synthdnm_ssc/output/classification/universal_scored.parquet
+
+  annotation:
+    vep_dir: /expanse/projects/sebat1/s3/data/sebat/sfari_dnm_analyses/vep_parquet   # {vep_dir}/{cohort}/*.parquet
+    # Moved in the 2026-09-08 G2MH reorganisation; the old lowercase g2mh/ path now holds only a README.
+    genebayes: /expanse/projects/sebat1/s3/data/sebat/G2MH/legacy/pre-2026-09-reorganization/scripts/scripts_for_rare_pipeline/resources/GeneBayes/output/Supplementary_Table_1.tsv
+    dbnsfp_scores_dir: /expanse/projects/sebat1/s3/data/sebat/resources/dbNSFP/5.3.1a/parquet_expanded_mane_select
+    dbnsfp_af_dir: /expanse/projects/sebat1/s3/data/sebat/resources/dbNSFP/5.3.1a/parquet_af
+
+  # Region masks for DNMs. `cols` = 1-based chrom,start,end columns; the header line is skipped.
+  region_masks:
+    repeat_masker: {path: /expanse/projects/sebat1/miladm/UCSD/repeats/resources/repeat_masker_GRCh38_genbrow.bed, cols: [6, 7, 8]}
+    simple_repeats: {path: /expanse/projects/sebat1/miladm/UCSD/repeats/resources/simple_repeats_TRF_GRCh38_genbrow.bed, cols: [2, 3, 4]}
+    segdups: {path: /expanse/projects/sebat1/miladm/UCSD/repeats/resources/SegDups_GRCh38_genbrow.bed, cols: [2, 3, 4]}
+
+  spark:
+    release_dir: /expanse/projects/sebat1/miladm/UCSD/resources/SPARK_phenotype/SPARKDataRelease_2026-09-28
+    release_tag: "2026-09-28"
+    # Not part of the 2026-09-28 release; the last delivery is in the 2026-03-23 folder.
+    air_pollution: "/expanse/projects/sebat1/miladm/UCSD/resources/SPARK_phenotype/SPARKDataRelease_2026-03-23/Air Pollution/spark_subjects_with_aq_exposure.csv"
+
+  ssc:
+    pheno_dir: /expanse/projects/sebat1/miladm/UCSD/resources/SPARK_phenotype/SSC_Version_15_Phenotype_Data_Set_9
+
+  smoking: /expanse/projects/sebat1/miladm/UCSD/resources/SPARK_phenotype/SFARI_SMOKING/sfari_smoking_exposure_2025-07-29.csv
+
+  coverage:
+    spark_wes: /expanse/projects/sebat1/s3/data/sebat/coverage_spark/spark_wes/spark_wes_coverage.tsv
+    spark_wgs: /expanse/projects/sebat1/miladm/UCSD/SFARI_QC/00_mosdepth/spark_wgs_coverage.tsv
+    ssc: /expanse/projects/sebat1/miladm/UCSD/SFARI_QC/ssc_coverage.tsv
+  cram_stats:
+    spark_wes: /expanse/projects/sebat1/s3/data/sebat/coverage_spark/spark_wes/spark_wes_alignment.tsv
+    spark_wgs: /expanse/projects/sebat1/s3/data/sebat/SPARK_iWGS_v1.1/mastertables/SPARK.iWGS_v1.1.mastertable.cram_stats.2023_03.tsv
+    ssc: /expanse/projects/sebat1/s3/data/sebat/SSC_cram_QC/SSC.cram_stats.tsv
+
+inherited_burden:
+  # Carrier-level counts of rare inherited variants (carrier == "1").
+  # Drop a child's de novo candidate sites so RV counts are inherited only (no overlap with DNMs).
+  exclude_dnm_candidates: true
+  loeuf_tier1_max: 0.25        # lof_tier1: LoF HC & LOEUF < 0.25
+  loeuf_tier2_max: 0.5         # lof_tier2: LoF HC & 0.25 <= LOEUF < 0.5
+  mpc_min: 1.75                # missense passes MPC if MPC_max > 1.75
+  am_min: 0.997                # missense passes AlphaMissense if AM_max > 0.997
+
+dnm:
+  max_cohort_af: 0.001
+  max_gnomad_popmax_af: 0.001
+  # DNMs on these chromosomes are not counted (step 04); sex-chromosome calls are error-prone.
+  # They stay in the annotated / filtered parquets.
+  exclude_chroms_from_counts: [chrX, chrY]
+  # GeneBayes s_het cut-points for LoF tiers (t1 >= hi, hi > t2 >= lo, t3 < lo or missing).
+  shet_hi: 0.18
+  shet_lo: 0.03
+  # Missense tiers: number of tools at/above their rankscore threshold (t1 = 4 of 4 ... t4 = 1 of 4).
+  missense_rankscore_thresholds:
+    ClinPred_rankscore: 0.4298
+    AlphaMissense_rankscore: 0.9603
+    popEVE_converted_rankscore: 0.9209
+    MPC_rankscore: 0.8947
+
+phenotypes:
+  min_parent_age: 5.0   # parental ages below this are set to missing (likely swapped IDs)
+
+analysis:
+  results_dir: results
+  # Children used in DNM analyses: in the DNM callset, then these per-cohort filters on dnm_all.
+  dnm_children:
+    drop_zero_dnm_all: {spark_wes: false, spark_wgs: true, ssc: true}   # 0 is normal for WES only
+    # Drop dnm_all above a within-cohort cutoff. median_mad: median + k * 1.4826 * MAD
+    # (robust; SSC's few huge counts inflate the SD so much that mean + 4 SD = 8,082).
+    # mean_sd: mean + k * SD.
+    outlier_method: median_mad
+    outlier_k: 5
+  # SEM of parental age -> ASD (02_analysis/sem). Child-level genetics throughout.
+  sem:
+    cohorts: [spark_wgs, ssc, spark_wes]
+    ancestry: EUR
+    parent_ages: [father_age_at_child_birth, mother_age_at_child_birth]   # one SEM per parent
+    dnm: [dnm_lof_t1, dnm_lof_t2, dnm_miss_t1, dnm_miss_t2]   # damaging DNMs, summed
+    # Inherited damaging rare-variant (RV) definitions; each is fitted as its own SEM and compared.
+    rv_definitions:
+      dnm_like: [rv_lof_t1, rv_lof_t2, rv_miss_t1, rv_miss_t2]   # same tiers as the DNM node
+      strict: [rv_lof_t1, rv_miss_t1, rv_miss_t2]                # without LoF t2 (s_het 0.03-0.18)
+      original: [lof_tier1, mis_both]                            # LOEUF < 0.25 LoF + MPC & AM missense
+    rv_primary: dnm_like    # used for the path diagrams
+    # Birth order (capped at 4) in the parental-age and ASD equations:
+    #   linear      one numeric term (bo_linear)
+    #   categorical indicators bo_2, bo_3, bo_4plus vs first-born
+    birth_order_coding: categorical
+    pgs_asd: asd_loSSC          # SSC-excluded weights; asd_ipsych_dbs overlaps SSC
+    pgs_edu: edu_2022
+    n_pcs: 10
+    # Sequencing covariates (SEM name: assembled column), z-scored; entered in every equation
+    # together with sex and the PCs.
+    seq_covariates:
+      coverage: coverage_mean
+      mother_coverage: mother_coverage_mean
+      father_coverage: father_coverage_mean
+      mother_mapped_pct: mother_cram_mapped_pct
+      father_mapped_pct: father_cram_mapped_pct
+
+assembly:
+  drop_manifest_columns: [PC1, PC2, PC3, PC4, PC5, PC6, PC7, PC8, PC9, PC10]
+  # Manifest PGS are centred but on their raw scale (SD ~ 2e-7). Step 08 z-scores them
+  # within each cohort (all individuals in the table), so 1 unit = 1 SD in that cohort.
+  pgs_columns: [adhd_2022, afb_2018, agesmk_2022, asd_ipsych_dbs, bip_2024, bmi_2018,
+                cigperday_2022, drinks_2022, edu_2022, haircolor_black_2025,
+                haircolor_darkbrown_2025, height_2022, iq_2018, mdd_2025, no2_2018,
+                pm25_2018, scz_2022, smkces_2022, smoking_2022, asd_loSSC]
+  # Columns copied from each child's parents onto the child row as mother_<col> / father_<col>.
+  parent_lookup_columns:
+    - edu_2022
+    - afb_2018
+    - asd_ipsych_dbs
+    - asd_loSSC
+    - lof_tier1
+    - lof_tier2
+    - mis_both
+    - coverage_mean
+    - cram_mapped_pct
+    - cram_properly_paired_pct
+    - cram_primary_duplicates_pct
